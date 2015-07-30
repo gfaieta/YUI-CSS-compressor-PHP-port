@@ -1,0 +1,126 @@
+#!/usr/bin/env php
+<?php
+
+require_once __DIR__ .'/cssmin.php';
+
+
+// Create our environment
+$silent    = false;
+$linebreak = false;
+$raisephp  = false;
+
+// Check for arguments
+array_shift($argv);
+if (!count($argv)) {
+	$argv[] = '-h';
+}
+
+// parse arguments
+foreach ($argv as $key => $arg) {
+	if (preg_match('/^--?([a-z][0-9a-z-]*)(?:=([^\s]+))?$/i', $arg, $matches)) {
+		$option = $matches[1];
+		$value = isset($matches[2]) ? $matches[2] : false;
+		unset($argv[$key]);
+
+		switch ($option) {
+			case 'h':
+			case 'help':
+				echo <<<EOD
+Usage: cssmin [options] source [destination]
+
+ -h, --help            Print help (this message) and exit.
+ -s, --silent          Suppress output of error messages.
+ -l, --line-break=N    Line break after n lines
+ -m, --memory-limit=N  Set memory limit tp N bytes
+ -t, --max-time=N      Set max max execution time to N secs
+ --pcre-bt-limit=N     Set pcre backtrack limit to 1000 * N
+ --pcre-rec-limit=N    Set pcre recursioni limit to 1000 * N
+
+
+EOD;
+				exit;
+			case 's':
+			case 'silent':
+				$silent = true;
+				break;
+
+			case 'l':
+			case 'line-break':
+				$linebreak = $value;
+				break;
+
+			case 'm':
+			case 'memory-limit':
+				$memlimit = $value;
+				$raisephp = true;
+				break;
+
+			case 't':
+			case 'max-time':
+				$maxtime = true;
+				$raisephp = true;
+				break;
+
+			case 't':
+			case 'pcre-bt-limit':
+				$btlimit = $value;
+				$raisephp = true;
+				break;
+
+			case 't':
+			case 'pcre-rec-limit':
+				$reclimit = $value;
+				$raisephp = true;
+				break;
+
+		}
+	}
+}
+
+
+if (count($argv) == 2) {
+	$output = array_pop($argv);
+	$input  = array_pop($argv);
+}
+elseif(count($argv) == 1) {
+	$input = array_pop($argv);
+	$output = false;
+}
+else {
+	echo("cssmin: no input files\n");
+	exit;
+}
+
+
+$compressor = new CSSmin($raisephp);
+if (isset($memlimit)) {
+	$compressor->set_memory_limit($memory_limit);
+}
+if (isset($maxtime)) {
+	$compressor->set_max_execution_time($maxtime);
+}
+if (isset($btlimit)) {
+	$compressor->set_pcre_backtrack_limit(1000 * $btlimit);
+}
+if (isset($reclimit)) {
+	$compressor->set_pcre_recursion_limit(1000 * $reclimit);
+}
+
+
+$content = file_get_contents($input == '-' ? 'php://stdin' : $input);
+
+try {
+	$compressed = $compressor->run($content, $linebreak);
+}
+catch (Exception $e) {
+	if (!$silent) {
+		echo("cssmin: " . ((string)$e) . " \n");
+	}
+}
+
+if ($output) {
+	file_put_contents($output, $compressed);
+}
+else {
+	echo $compressed;
+}
